@@ -1,0 +1,185 @@
+/*
+
+  LED Stair Case Lighting
+  ### Author: Amareswar
+  ### Description:
+
+*/
+
+
+int TotalSteps = 20;  // Total no of staits
+int StairLength = 30; // avg stair length in cm
+int interval=5000;    // Delay for total time run time
+
+#define TopEcho 2    // Trig pin for top stair
+#define TopTrig 3    // Echo pin for top stair
+#define DwnEcho 4    // Trig pin for Down stair
+#define DwnTrig 5    // Trig echo for Down stair
+
+#define test 13      // Onboard test pin
+#define Red 12      // Trig pin for top stair
+#define Green 11    // Trig pin for top stair
+#define Blue 10     // Trig pin for top stair
+
+long duration, distance, TopDist, DwnDist;
+boolean TopExec, DwnExec, Top, Dwn;
+int StartPin=22, EndPin=52, TopCurPin, DwnCurPin;
+
+unsigned long TopPrevMillis = 0, DwnPrevMillis = 0, currentMillis, TopDlyMillis; 
+
+void setup()
+{
+  Serial.begin (9600);
+
+  pinMode(TopTrig,  OUTPUT);
+  pinMode(DwnTrig,  OUTPUT);
+  pinMode(TopEcho,  INPUT);
+  pinMode(DwnEcho,  INPUT);
+
+  pinMode(test,  OUTPUT);
+  pinMode(Red,   OUTPUT);
+  pinMode(Green, OUTPUT);
+  pinMode(Blue,  OUTPUT);
+
+  for(int a=StartPin;a<EndPin;) pinMode(a++,OUTPUT);
+  for(int b=StartPin;b<EndPin;) digitalWrite(b++, LOW);;
+}
+
+
+void loop()
+{
+  currentMillis = millis();
+
+  SonarSensor(TopTrig, TopEcho);  //Read the distance from top and down stair
+  TopDist = distance;
+  SonarSensor(DwnTrig, DwnEcho);
+  DwnDist = distance;
+
+  if (TopDist <= StairLength && TopExec == LOW  ) //When top distance is less than stair width then set bit high
+  { 
+              TopExec = HIGH;
+              TopCurPin = 0;
+              TopPrevMillis = currentMillis;
+  }
+
+ if((unsigned long)(currentMillis - TopPrevMillis) >= interval ) //When predefined time is set then turn off the lights
+    { 
+      TopExec = LOW; 
+      TopCurPin = 0;
+    }
+
+  if (DwnDist <= StairLength && DwnExec == LOW  ) //When down distance is less than stair width then set bit high
+  { 
+              DwnExec = HIGH;
+              DwnCurPin = 0;
+              DwnPrevMillis = currentMillis;
+  }
+
+ if((unsigned long)(currentMillis - DwnPrevMillis) >= interval )  //When predefined time is set then turn off the lights
+      { 
+        DwnExec = LOW;
+        DwnCurPin = 0;
+      }
+
+  top(); 
+  down();    
+  if ( TopExec == HIGH || DwnExec ==HIGH ) 
+  {
+//  Serial.print("[Sensor, Distance, Loop, Pin]:");
+  Serial.print("[ Up, ");
+  Serial.print(TopDist);
+  Serial.print(", ");
+  Serial.print(TopExec);
+  Serial.print(", ");
+  Serial.print(TopCurPin);  
+  Serial.print(" ];");
+
+  Serial.print("[ Down, ");
+  Serial.print(DwnDist);
+  Serial.print(", ");
+  Serial.print(DwnExec);
+  Serial.print(", ");
+  Serial.print(DwnCurPin);  
+  Serial.println(" ];");
+
+ 
+//  Serial.print("0");
+ // delay(1000);
+  }
+}
+
+void SonarSensor(int trigPin, int echoPin)
+{
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  duration = pulseIn(echoPin, HIGH);
+  distance = (duration / 2) / 29.1;
+}
+
+
+void top () 
+{
+  if (TopExec==HIGH)
+    {
+      if( TopCurPin == 0)
+         { 
+            TopCurPin = EndPin;
+            TopDlyMillis = millis(); 
+         }
+      else if ( TopCurPin > StartPin ) 
+          TopCurPin = TopCurPin - 1;
+      else 
+          TopCurPin = 0;
+
+      if ( currentMillis - TopDlyMillis >= 1000 )
+        {
+            digitalWrite(test, HIGH);
+            digitalWrite(TopCurPin, HIGH);
+            TopDlyMillis = millis(); 
+        }
+      
+     }    
+   else 
+     { 
+      digitalWrite(test, LOW);
+      digitalWrite(TopCurPin, HIGH);
+     }
+     
+}
+
+void down () 
+{
+  if (DwnExec==HIGH)
+    {
+      if( DwnCurPin == 0)
+         DwnCurPin = StartPin;
+      else if ( DwnCurPin < EndPin ) 
+          DwnCurPin = DwnCurPin + 1;
+      else 
+          DwnCurPin = 0;
+
+      digitalWrite(test, HIGH);
+      digitalWrite(DwnCurPin, HIGH);
+     }    
+   else 
+     { 
+      digitalWrite(test, LOW);
+      digitalWrite(DwnCurPin, LOW);
+     }
+     
+}
+
+void fade(int ledPin )
+{
+  for (int fadeValue = 0 ; fadeValue <= 255; fadeValue += 5) {
+    analogWrite(ledPin, fadeValue);
+    delay(30);
+  }
+  for (int fadeValue = 255 ; fadeValue >= 0; fadeValue -= 5) {
+    analogWrite(ledPin, fadeValue);
+    delay(30);
+  }
+}
