@@ -1,0 +1,172 @@
+#include <Servo.h>
+#include <AFMotor.h>
+#include <NewPing.h>
+#include <LiquidCrystal.h>
+
+
+#define TRIGGER A4 
+#define ECHO A5
+#define MAX_DISTANCE 1000 
+#define MAX_SPEED 300
+#define COLL_DIST 20
+
+NewPing sonar(TRIGGER, ECHO, MAX_DISTANCE);
+Servo H_Servo;
+
+AF_DCMotor leftMotor(4,MOTOR12_8KHZ);
+AF_DCMotor rightMotor(3,MOTOR12_8KHZ);
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+ 
+int ServoAngle =0, FwdDist = 0, RgtDist = 0, LftDist = 0, speedSet = 0;
+unsigned long StartMillis = 0, CurrentMillis=0, PreviousMillis = 0; 
+long interval = 300;
+
+void setup()
+{
+  Serial.begin(9600);
+  H_Servo.attach(10); 
+  lcd.begin(16, 2);
+  
+  speedSet = 0;
+  delay(1000);
+  Serial.println("Bot is starting");
+  lcd.print("Bot is starting up ......");
+  StartMillis = millis();
+  CurrentMillis = StartMillis;
+  PreviousMillis = StartMillis;
+  look();
+}
+
+void loop()
+{
+    CurrentMillis = millis();
+    if(CurrentMillis - PreviousMillis > interval) 
+    {
+      PreviousMillis = CurrentMillis;
+      if (ServoAngle >= 150 ) 
+        { 
+          ServoAngle =0;  
+        } 
+      ServoAngle+=30;
+      H_Servo.write(ServoAngle);
+      if (ServoAngle == 30) 
+         RgtDist = readPing();
+      else if (ServoAngle == 90)
+         FwdDist = readPing();
+      else if (ServoAngle == 150)
+         LftDist = readPing();
+  }
+
+  Serial.print("Fwd Distance:");
+  Serial.print(FwdDist);
+
+  Serial.print("\t Left Distance:");
+  Serial.print(LftDist);
+
+  Serial.print("\t Right Distance:");
+  Serial.println(RgtDist);
+
+}
+
+
+
+
+
+
+void look()
+{
+ ServoAngle =30;
+ H_Servo.write(ServoAngle);
+ RgtDist = readPing();
+  ServoAngle = 90;
+ H_Servo.write(ServoAngle);
+ FwdDist = readPing();
+ ServoAngle = 150;
+ H_Servo.write(ServoAngle);
+ LftDist = readPing();
+ ServoAngle = 90;
+ H_Servo.write(ServoAngle);
+}
+
+void drive()
+{
+  if ( FwdDist > COLL_DIST )
+      { 
+          moveForward();
+      }
+   else if ( LftDist > RgtDist) 
+      { 
+
+          turnLeft();
+      }
+   else if ( LftDist <= RgtDist) 
+      {
+        turnRight();
+      }
+   else
+      {
+        reverse();
+      }
+}
+void moveForward() 
+  {
+      Serial.println("moveForward");
+      leftMotor.run(FORWARD);
+      rightMotor.run(FORWARD);
+      for (speedSet = 0; speedSet < MAX_SPEED; speedSet +=2)
+      {
+        leftMotor.setSpeed(speedSet);
+        rightMotor.setSpeed(speedSet);
+        delay(5);
+      }
+  }
+
+void reverse() 
+  {
+     Serial.println("moveBackward");
+      leftMotor.run(BACKWARD);
+      rightMotor.run(BACKWARD);
+      for (speedSet = 0; speedSet < MAX_SPEED; speedSet +=2)
+      {
+        leftMotor.setSpeed(speedSet);
+        rightMotor.setSpeed(speedSet);
+        delay(5);
+      }
+  }  
+
+void turnRight() 
+  {
+     Serial.println("turnRight");
+      leftMotor.run(FORWARD);
+      rightMotor.run(BACKWARD);
+      delay(400);     
+  }  
+
+void turnLeft() 
+  {
+     Serial.println("turnLeft");
+      leftMotor.run(BACKWARD);
+      rightMotor.run(FORWARD);
+      delay(400);
+  }  
+
+void moveStop() 
+  {
+      Serial.println("moveStop");
+      leftMotor.run(RELEASE); 
+      rightMotor.run(RELEASE);
+  }
+
+int readPing() 
+  {
+    delay(300);
+    top:
+    unsigned int uS = sonar.ping();
+    int cm = uS/US_ROUNDTRIP_CM;
+    if (cm < 2 )
+     { 
+      goto top;
+     }
+    return cm;
+  }
+
